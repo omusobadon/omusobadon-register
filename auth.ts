@@ -34,17 +34,18 @@ export const authConfig = {
     Google,
     CredentialsProvider({
       credentials: {
-        email: {
+        mail: {
+          name: "mail",
           label: "メールアドレス",
           type: "email",
           placeholder: "メールアドレス",
         },
-        password: { label: "パスワード", type: "password" },
+        password: { name: "password", label: "パスワード", type: "password" },
       },
       async authorize(credentials) {
         const email = "admin@example.com";
 
-        return credentials.email === email && credentials.password === "admin"
+        return credentials.mail === email && credentials.password === "admin"
           ? { id: "userId", email, name: "Admin", role: "admin" }
           : null;
       },

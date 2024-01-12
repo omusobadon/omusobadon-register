@@ -1,24 +1,53 @@
 "use client";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import GetProviders from "@/components/component/GetProvider";
 import { IoLogoGithub } from "react-icons/io5";
 import { FcGoogle } from "react-icons/fc";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function Component() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  async function authenticate(
+    prevState: string | undefined,
+    formData: FormData
+  ) {
+    const { mail, password } = Object.fromEntries(formData);
+  
+    try {
+      await signIn("credentials", {
+        mail,
+        password,
+        redirect: false,
+        callbackUrl: "/dashboard",
+      });
+      return "success"
+    } catch (err) {
+      return "Wrong Credentials!" + err + " " + mail + " " + password;
+    }
+  }
 
   useEffect(() => {
-    // セッションがロードされ、ユーザーがログインしているか確認
     if (status === "authenticated") {
       router.push("/account");
     }
   }, [session, status, router]);
+
+  const handleSubmit = async (event: { preventDefault: () => void; }) => {
+    event.preventDefault();
+    const formData = new FormData();
+    formData.append("mail", email);
+    formData.append("password", password);
+    const result = await authenticate(undefined, formData);
+    console.log(result);
+  };
+
   return (
     <div>
       {!session && (
@@ -40,7 +69,7 @@ export default function Component() {
                 Googleでログイン
               </GetProviders>
             </div>
-            <form className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label
                   className="text-gray-900 dark:text-gray-100"
@@ -48,7 +77,14 @@ export default function Component() {
                 >
                   Email
                 </Label>
-                <Input className="w-full" id="email" required type="email" />
+                <Input
+                  className="w-full"
+                  id="email"
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label
@@ -62,11 +98,13 @@ export default function Component() {
                   id="password"
                   required
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
               <Button
                 className="w-full bg-indigo-500 hover:bg-indigo-600 text-white"
-                onClick={() => signIn("credentials")}
+                type="submit"
               >
                 Log In
               </Button>
