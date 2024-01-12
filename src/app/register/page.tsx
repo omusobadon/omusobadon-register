@@ -3,7 +3,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { genSaltSync, hashSync, compareSync } from "bcrypt-ts";
+import { hashPassword, comparePassword } from "@/lib/bcryptaction";
+
 import axios from "axios";
 
 export default function Register() {
@@ -25,24 +26,26 @@ export default function Register() {
 
   const checkEmail = async (mail: string) => {
     try {
-      const response = await axios.get('http://localhost:8080/get_customer');
+      const response = await axios.get("http://localhost:8080/get_customer");
       const customers = response.data.customer;
 
       // 顧客データが空の場合はメールアドレスが使用されていないと見なす
       if (customers.length === 0) {
-          return true;
+        return true;
       }
 
-      const isEmailUsed = customers.some((customer: { mail: any; }) => customer.mail === mail);
+      const isEmailUsed = customers.some(
+        (customer: { mail: any }) => customer.mail === mail
+      );
       if (isEmailUsed) {
-          setErrorMessage('このメールアドレスは既に使用されています。');
-          return false;
+        setErrorMessage("このメールアドレスは既に使用されています。");
+        return false;
       }
       return true;
-  } catch (error) {
-      console.error('Error:', error);
+    } catch (error) {
+      console.error("Error:", error);
       // エラー処理
-  }
+    }
   };
 
   const handleSubmit = async (e: { preventDefault: () => void }) => {
@@ -57,16 +60,29 @@ export default function Register() {
     }
 
     try {
-      const hash = hashSync(formData.password, 12);
-      formData.password = hash;
-      const confirmPasswords = compareSync(formData.confirmPassword, hash);
+      // パスワードをハッシュ化
+      const hashedPassword = await hashPassword(formData.password);
+
+      // ハッシュ化されたパスワードと確認用パスワードを比較
+      const confirmPasswords = await comparePassword(
+        formData.confirmPassword,
+        hashedPassword
+      );
       if (!confirmPasswords) {
         setErrorMessage("パスワードが一致しません。");
         return;
       }
+
+      // フォームデータの準備
+      const submitData = {
+        ...formData,
+        password: hashedPassword,
+      };
+
+      // APIリクエスト
       const response = await axios.post(
-        "http://localhost:8080/post_customer",
-        formData
+        `${process.env.NEXT_PUBLIC_API_URL}/post_customer`,
+        submitData
       );
       console.log("Response:", response.data);
       // 必要に応じてさらに処理を行います
@@ -74,7 +90,6 @@ export default function Register() {
       console.error("Error:", error);
       // エラー処理
     }
-
     console.log("Form Data:", JSON.stringify(formData, null, 2));
     // ここでフォームデータの送信やその他の処理を行います
   };

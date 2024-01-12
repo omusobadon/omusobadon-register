@@ -1,34 +1,13 @@
 import NextAuth from "next-auth";
-
+import { authConfig } from "./auth.config";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
+import axios from "axios";
+import bcrypt from "bcrypt";
 
-import type { NextAuthConfig } from "next-auth";
-
-export const authConfig = {
-  theme: {
-    colorScheme: "auto", 
-    logo: "https://next-auth.js.org/img/logo/logo-sm.png",
-  },
-  pages: {
-    signIn: "/login",  // ← 追加
-    error: "/login",    // ← 追加
-  },
-  callbacks: {
-    authorized({ auth, request }) {
-      const isLoggedIn = auth?.user;
-      const isOnDashboard = request.nextUrl.pathname.startsWith("/");
-      if (isOnDashboard) {
-        if (isLoggedIn) return true;
-        return false;
-      } else if (isLoggedIn) {
-        return Response.redirect(new URL("/", request.nextUrl));
-      }
-      return true;
-    },
-  },
-
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     GitHub,
     Google,
@@ -43,14 +22,40 @@ export const authConfig = {
         password: { name: "password", label: "パスワード", type: "password" },
       },
       async authorize(credentials) {
-        const email = "admin@example.com";
+        try {
+          const response = await axios.get(
+            `${process.env.NEXT_PUBLIC_API_URL}/get_customer`
+          );
+          const customerData = response.data;
 
-        return credentials.mail === email && credentials.password === "admin"
-          ? { id: "userId", email, name: "Admin", role: "admin" }
-          : null;
+          // 顧客データが存在し、少なくとも1つの顧客がいることを確認
+          if (customerData.customer && customerData.customer.length > 0) {
+            const customer = customerData.customer[0]; // 最初の顧客を取得
+
+            const hashedPassword = customer.password; // ハッシュされたパスワード
+            const password = credentials.password;
+
+            // パスワードを比較
+            const isPasswordCorrect = await bcrypt.compare(
+              `${password}`,
+              hashedPassword
+            );
+
+            if (isPasswordCorrect) {
+              return {
+                id: customer.id,
+                mail: customer.mail,
+                name: customer.name,
+                // 他の必要なユーザー情報をここに追加
+              };
+            }
+          }
+          return null;
+        } catch (error) {
+          console.error("Authorization error:", error);
+          return null;
+        }
       },
     }),
   ],
-} satisfies NextAuthConfig;
-
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+});

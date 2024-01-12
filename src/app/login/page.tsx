@@ -24,14 +24,16 @@ export default function Component() {
       await signIn("credentials", {
         mail,
         password,
-        redirect: false,
-        callbackUrl: "/dashboard",
+        redirect: true,
+        callbackUrl: "/account",
       });
+      console.log(password);
       return "success"
     } catch (err) {
       return "Wrong Credentials!" + err + " " + mail + " " + password;
     }
   }
+  
 
   useEffect(() => {
     if (status === "authenticated") {
