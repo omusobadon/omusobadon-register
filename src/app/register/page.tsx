@@ -2,12 +2,28 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import { hashPassword, comparePassword } from "@/lib/bcryptaction";
+import { useState, useEffect } from "react";
 
-import axios from "axios";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
+import { checkEmail, postCustomerData } from "@/lib/apidata";
+import { useSession } from "next-auth/react";
 
 export default function Register() {
+  const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  const isLoggedin = !!session; // セッションがあるかどうかの真偽値
+
   const [formData, setFormData] = useState({
     name: "",
     mail: "",
@@ -15,6 +31,7 @@ export default function Register() {
     password: "",
     confirmPassword: "",
   });
+
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleChange = (e: { target: { name: any; value: any } }) => {
@@ -24,75 +41,56 @@ export default function Register() {
     });
   };
 
-  const checkEmail = async (mail: string) => {
-    try {
-      const response = await axios.get("http://localhost:8080/get_customer");
-      const customers = response.data.customer;
-
-      // 顧客データが空の場合はメールアドレスが使用されていないと見なす
-      if (customers.length === 0) {
-        return true;
-      }
-
-      const isEmailUsed = customers.some(
-        (customer: { mail: any }) => customer.mail === mail
-      );
-      if (isEmailUsed) {
-        setErrorMessage("このメールアドレスは既に使用されています。");
-        return false;
-      }
-      return true;
-    } catch (error) {
-      console.error("Error:", error);
-      // エラー処理
-    }
-  };
-
   const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
-
-    const isEmailValid = await checkEmail(formData.mail);
-    if (!isEmailValid) return;
-
-    if (formData.password !== formData.confirmPassword) {
-      setErrorMessage("パスワードが一致しません。");
-      return;
-    }
+    
+    const submitData = session
+      ? {
+          name: formData.name,
+          mail: session.user?.email, // セッションが true の場合は空に設定
+          phone: formData.phone,
+        }
+      : formData; // セッションが false の場合はフォームデータをそのまま使用
 
     try {
-      // パスワードをハッシュ化
-      const hashedPassword = await hashPassword(formData.password);
+      if (!isLoggedin) {
+        // セッションがない場合のみメールアドレスのチェックを行う
+        const emailAvailable = await checkEmail(formData.mail);
+        if (!emailAvailable) {
+          setErrorMessage("このメールアドレスは既に使用されています。");
+          return;
+        }
 
-      // ハッシュ化されたパスワードと確認用パスワードを比較
-      const confirmPasswords = await comparePassword(
-        formData.confirmPassword,
-        hashedPassword
-      );
-      if (!confirmPasswords) {
-        setErrorMessage("パスワードが一致しません。");
-        return;
+        // パスワードの一致確認
+        if (formData.password !== formData.confirmPassword) {
+          setErrorMessage("パスワードが一致しません。");
+          return;
+        }
       }
 
-      // フォームデータの準備
-      const submitData = {
-        ...formData,
-        password: hashedPassword,
-      };
-
       // APIリクエスト
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/post_customer`,
-        submitData
-      );
-      console.log("Response:", response.data);
-      // 必要に応じてさらに処理を行います
+
+      const response = await postCustomerData(submitData);
+      console.log(response);
+      if (response) {
+        setIsRegistrationComplete(true);
+      }
     } catch (error) {
-      console.error("Error:", error);
-      // エラー処理
+      setErrorMessage("登録中にエラーが発生しました。");
     }
-    console.log("Form Data:", JSON.stringify(formData, null, 2));
+    console.log("Form Data:", JSON.stringify(submitData, null, 2));
     // ここでフォームデータの送信やその他の処理を行います
   };
+  const handleDialogClose = () => {
+    // ダイアログを閉じて/loginにリダイレクト
+    router.push("/login");
+  };
+
+  useEffect(() => {
+    if (session) {
+      router.push("/account");
+    }
+  }, [session, status]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500">
@@ -101,8 +99,25 @@ export default function Register() {
           オムそばどん予約システム
         </h1>
         <p className="text-center text-gray-600 dark:text-gray-400">
-          登録してください
+          {session
+            ? "外部アカウントの登録をしてください"
+            : "新しくアカウントを作成してください"}
         </p>
+        {isRegistrationComplete && (
+          <Dialog open={isRegistrationComplete}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>登録完了</DialogTitle>
+              </DialogHeader>
+              <DialogDescription>
+                登録が完了しました。ログインページへ移動します。
+              </DialogDescription>
+              <DialogFooter>
+                <Button onClick={handleDialogClose}>OK</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label className="text-gray-900 dark:text-gray-100" htmlFor="name">
@@ -117,19 +132,26 @@ export default function Register() {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-gray-900 dark:text-gray-100" htmlFor="email">
-              メールアドレス
-            </Label>
-            <Input
-              className="w-full"
-              id="mail"
-              name="mail"
-              onChange={handleChange}
-              required
-              type="email"
-            />
-          </div>
+          {session && (
+            <div className="space-y-2">
+              <Label
+                className="text-gray-900 dark:text-gray-100"
+                htmlFor="email"
+              >
+                メールアドレス
+              </Label>
+              <Input
+                className="w-full"
+                id="mail"
+                name="mail"
+                type="email"
+                onChange={handleChange}
+                value={session?.user?.email ?? ""}
+                required
+                disabled={isLoggedin} // セッションがある場合は無効化
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label
               className="text-gray-900 dark:text-gray-100"
@@ -146,48 +168,53 @@ export default function Register() {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label
-              className="text-gray-900 dark:text-gray-100"
-              htmlFor="password"
-            >
-              Password
-            </Label>
-            <Input
-              type="password"
-              name="password"
-              onChange={handleChange}
-              placeholder="パスワード"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label
-              className="text-gray-900 dark:text-gray-100"
-              htmlFor="confirmPassword"
-            >
-              Confirm Password
-            </Label>
-            <Input
-              type="password"
-              name="confirmPassword"
-              onChange={handleChange}
-              placeholder="パスワードの再入力"
-            />
+          {!isLoggedin && (
+            <>
+              <div className="space-y-2">
+                <Label
+                  className="text-gray-900 dark:text-gray-100"
+                  htmlFor="password"
+                >
+                  Password
+                </Label>
+                <Input
+                  type="password"
+                  name="password"
+                  onChange={handleChange}
+                  placeholder="パスワード"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label
+                  className="text-gray-900 dark:text-gray-100"
+                  htmlFor="confirmPassword"
+                >
+                  Confirm Password
+                </Label>
+                <Input
+                  type="password"
+                  name="confirmPassword"
+                  onChange={handleChange}
+                  placeholder="パスワードの再入力"
+                />
+              </div>
+            </>
+          )}
 
-            {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
-          </div>
+          {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
           <Button
             className="w-full bg-indigo-500 hover:bg-indigo-600 text-white"
             type="submit"
           >
             Sign Up
           </Button>
-          <div className="mt-4 text-center">
-            <a href="/login" className="text-gray-600 dark:text-gray-400">
-              既にアカウントをお持ちの方は
-            </a>
-          </div>
         </form>
+
+        <div className="mt-4 text-center">
+          <a href="/login" className="text-gray-600 dark:text-gray-400">
+            既にアカウントをお持ちの方は
+          </a>
+        </div>
       </div>
     </div>
   );

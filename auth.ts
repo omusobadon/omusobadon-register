@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  
   providers: [
     GitHub,
     Google,
@@ -23,6 +24,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         try {
+          console.log("credentials", credentials);
           const response = await axios.get(
             `${process.env.NEXT_PUBLIC_API_URL}/get_customer`
           );
@@ -30,24 +32,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // 顧客データが存在し、少なくとも1つの顧客がいることを確認
           if (customerData.customer && customerData.customer.length > 0) {
-            const customer = customerData.customer[0]; // 最初の顧客を取得
-
-            const hashedPassword = customer.password; // ハッシュされたパスワード
-            const password = credentials.password;
-
-            // パスワードを比較
-            const isPasswordCorrect = await bcrypt.compare(
-              `${password}`,
-              hashedPassword
+            // 提供されたメールアドレスに一致する顧客を検索
+            const customer = customerData.customer.find(
+              (c: { mail: unknown }) => c.mail === credentials.mail
             );
 
-            if (isPasswordCorrect) {
-              return {
-                id: customer.id,
-                mail: customer.mail,
-                name: customer.name,
-                // 他の必要なユーザー情報をここに追加
-              };
+            // 一致する顧客が見つかった場合
+            if (customer.password) {
+              const hashedPassword = customer.password; // ハッシュされたパスワード
+              const password = credentials.password;
+
+              // パスワードを比較
+              const isPasswordCorrect = await bcrypt.compare(
+                `${password}`,
+                hashedPassword
+              );
+
+              console.log("isPasswordCorrect", isPasswordCorrect);
+              console.log("hashedPassword", hashedPassword);
+
+              if (isPasswordCorrect) {
+                return {
+                  id: customer.id,
+                  mail: customer.mail,
+                  name: customer.name,
+                };
+              } else {
+                throw new Error("パスワードが一致しません");
+              }
+            } else {
+              throw new Error(
+                "パスワードが設定されていないアカウントです。GitHubかGoogleでログインしてください"
+              );
             }
           }
           return null;
@@ -58,4 +74,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
+  
 });

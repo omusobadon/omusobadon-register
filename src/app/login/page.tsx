@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation"; // next/routerからの正しいインポート
 import { useSession, signIn } from "next-auth/react";
 import GetProviders from "@/components/component/GetProvider";
 import { IoLogoGithub } from "react-icons/io5";
@@ -8,46 +8,61 @@ import { FcGoogle } from "react-icons/fc";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import axios from "axios";
 
-export default function Component() {
+
+export default function Login() {
   const { data: session, status } = useSession();
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  
+
   async function authenticate(
     prevState: string | undefined,
     formData: FormData
-  ) {
+  ): Promise<string | undefined> {
+    const response = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/get_customer`
+    );
+    const customerData = response.data;
+    const customer = customerData.customer;
+
     const { mail, password } = Object.fromEntries(formData);
-  
+
     try {
-      await signIn("credentials", {
+      const search = customer.find((c: { mail: unknown }) => c.mail === mail);
+      const result = await signIn("credentials", {
         mail,
         password,
-        redirect: true,
-        callbackUrl: "/account",
+        redirect: false,
       });
-      console.log(password);
-      return "success"
+
+      if (result) {
+        if (result.error && search === undefined) {
+          setErrorMessage("アカウントが見つかりませんでした。");
+        } else {
+          setErrorMessage("パスワードが間違っているか、パスワードが設定されていないアカウントです。\nGitHubまたはGoogleでログインしてください");
+        }
+      }
     } catch (err) {
-      return "Wrong Credentials!" + err + " " + mail + " " + password;
+      console.log(err);
+      if (err instanceof TypeError) {
+        if (err.message === "URL constructor: /api/auth is not a valid URL.") {
+          console.log("redirect");
+        }
+      } else {
+        return "fail";
+      }
     }
   }
-  
 
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/account");
-    }
-  }, [session, status, router]);
-
-  const handleSubmit = async (event: { preventDefault: () => void; }) => {
+  const handleSubmit = async (event: { preventDefault: () => void }) => {
     event.preventDefault();
     const formData = new FormData();
     formData.append("mail", email);
     formData.append("password", password);
-    const result = await authenticate(undefined, formData);
-    console.log(result);
+    await authenticate(undefined, formData);
   };
 
   return (
@@ -104,6 +119,10 @@ export default function Component() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
+              {errorMessage && (
+                <div className="text-red-500">{errorMessage}</div>
+              )}
+
               <Button
                 className="w-full bg-indigo-500 hover:bg-indigo-600 text-white"
                 type="submit"
@@ -113,7 +132,7 @@ export default function Component() {
             </form>
             <div className="mt-4 text-center">
               <a href="/register" className="text-gray-600 dark:text-gray-400">
-                既にアカウントをお持ちの方は
+                アカウントを持っていない方はこちら
               </a>
             </div>
           </div>
