@@ -53,19 +53,19 @@ export default function Register() {
       : formData; // セッションが false の場合はフォームデータをそのまま使用
 
     try {
-      if (!isLoggedin) {
-        // セッションがない場合のみメールアドレスのチェックを行う
-        const emailAvailable = await checkEmail(formData.mail);
-        if (!emailAvailable) {
-          setErrorMessage("このメールアドレスは既に使用されています。");
-          return;
-        }
+      // セッションがない場合のみメールアドレスのチェックを行う
+      const emailAvailable = await checkEmail(formData.mail);
+      const phoneAvailable = await checkEmail(formData.phone);
+      const sessionEmailAvailable = await checkEmail(session?.user?.email);
+      if (!emailAvailable || !phoneAvailable || !sessionEmailAvailable) {
+        setErrorMessage("このメールアドレスは既に使用されています。");
+        return;
+      }
 
-        // パスワードの一致確認
-        if (formData.password !== formData.confirmPassword) {
-          setErrorMessage("パスワードが一致しません。");
-          return;
-        }
+      // パスワードの一致確認
+      if (formData.password !== formData.confirmPassword) {
+        setErrorMessage("パスワードが一致しません。");
+        return;
       }
 
       // APIリクエスト
@@ -82,12 +82,12 @@ export default function Register() {
     // ここでフォームデータの送信やその他の処理を行います
   };
   const handleDialogClose = () => {
-    // ダイアログを閉じて/loginにリダイレクト
+    console.log(router); // Add this line to check the router instance
     router.push("/login");
   };
 
   useEffect(() => {
-    if (session) {
+    if (isLoggedin) {
       router.push("/account");
     }
   }, [session, status]);
@@ -103,21 +103,21 @@ export default function Register() {
             ? "外部アカウントの登録をしてください"
             : "新しくアカウントを作成してください"}
         </p>
-        {isRegistrationComplete && (
-          <Dialog open={isRegistrationComplete}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>登録完了</DialogTitle>
-              </DialogHeader>
-              <DialogDescription>
-                登録が完了しました。ログインページへ移動します。
-              </DialogDescription>
-              <DialogFooter>
-                <Button onClick={handleDialogClose}>OK</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+
+        <Dialog open={isRegistrationComplete}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>登録完了</DialogTitle>
+            </DialogHeader>
+            <DialogDescription>
+              登録が完了しました。ログインページへ移動します。
+            </DialogDescription>
+            <DialogFooter>
+              <Button onClick={handleDialogClose}>OK</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label className="text-gray-900 dark:text-gray-100" htmlFor="name">
@@ -132,26 +132,25 @@ export default function Register() {
               required
             />
           </div>
-          {session && (
-            <div className="space-y-2">
-              <Label
-                className="text-gray-900 dark:text-gray-100"
-                htmlFor="email"
-              >
-                メールアドレス
-              </Label>
-              <Input
-                className="w-full"
-                id="mail"
-                name="mail"
-                type="email"
-                onChange={handleChange}
-                value={session?.user?.email ?? ""}
-                required
-                disabled={isLoggedin} // セッションがある場合は無効化
-              />
-            </div>
-          )}
+
+          <div className="space-y-2">
+            <Label className="text-gray-900 dark:text-gray-100" htmlFor="email">
+              メールアドレス
+            </Label>
+            <Input
+              className="w-full"
+              id="mail"
+              name="mail"
+              type="email"
+              onChange={handleChange}
+              value={
+                isLoggedin ? (session?.user?.email as string) : formData.mail
+              } // セッションがある場合はメールアドレスを表示
+              required
+              disabled={isLoggedin} // セッションがある場合は無効化
+            />
+          </div>
+
           <div className="space-y-2">
             <Label
               className="text-gray-900 dark:text-gray-100"
