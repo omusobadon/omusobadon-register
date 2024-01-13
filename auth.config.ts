@@ -31,16 +31,13 @@ export const authConfig = {
 
           // userEmailに該当する顧客を検索
           const customer = customerData.customer.find(
-            (c: { mail: string; }) => c.mail === userEmail
+            (c: { mail: string }) => c.mail === userEmail
           );
 
           // 該当する顧客が見つかれば /account にリダイレクト
-          if (customer) {
-            return Response.redirect(new URL("/account", request.nextUrl));
-          } else {
+          if (!customer) {
             // 見つからなければ /register にリダイレクト
             return Response.redirect(new URL("/register", request.nextUrl));
-            
           }
         } catch (error) {
           console.error("Error:", error);

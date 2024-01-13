@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { checkEmail, postCustomerData } from "@/lib/apidata";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 
 export default function Register() {
   const [isRegistrationComplete, setIsRegistrationComplete] = useState(false);
@@ -43,7 +43,7 @@ export default function Register() {
 
   const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    
+
     const submitData = session
       ? {
           name: formData.name,
@@ -215,6 +215,19 @@ export default function Register() {
             既にアカウントをお持ちの方は
           </a>
         </div>
+        {isLoggedin && (
+          <>
+            <div className="w-full flex justify-end">
+              <Button
+                className=" bg-white hover:bg-white hover:underline text-black"
+                /* サインアウト後/loginにリダイレクト*/
+                onClick={() => signOut({ callbackUrl: "/login" })}
+              >
+                Sign Out
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

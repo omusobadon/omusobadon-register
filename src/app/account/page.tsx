@@ -1,19 +1,12 @@
 "use client";
 import React from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 export default function Home() {
   const { data: session } = useSession();
   const Detalis = () => {
     console.log(session);
   };
-  const router = useRouter();
-  React.useEffect(() => {
-    if (!session) {
-      signIn();
-    }
-  }, [session]);
 
   return (
     <div className="h-screen">

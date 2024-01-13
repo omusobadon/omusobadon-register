@@ -16,6 +16,13 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const router = useRouter();
+
+  useEffect(() => {
+    if (session) {
+      router.push("/account");
+    }
+  }, [router, session]);
   
 
   async function authenticate(
