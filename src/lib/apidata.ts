@@ -36,7 +36,7 @@ export async function postCustomerData(customerData: any) {
       }
   
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/post_customer`,
+        `${process.env.NEXT_PUBLIC_API_URL}/create_customer`,
         customerData
       );
       return response.data;
