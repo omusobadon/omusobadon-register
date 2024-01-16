@@ -57,7 +57,7 @@ export default function Register() {
       const emailAvailable = await checkEmail(formData.mail);
       const phoneAvailable = await checkEmail(formData.phone);
       const sessionEmailAvailable = await checkEmail(session?.user?.email);
-      if (!emailAvailable || !phoneAvailable || !sessionEmailAvailable) {
+      if (emailAvailable || phoneAvailable || sessionEmailAvailable) {
         setErrorMessage("このメールアドレスは既に使用されています。");
         return;
       }
@@ -87,10 +87,25 @@ export default function Register() {
   };
 
   useEffect(() => {
-    if (isLoggedin) {
-      router.push("/account");
-    }
-  }, [session, status]);
+    const verifyEmail = async () => {
+      try {
+        const emailAvailable = await checkEmail(session?.user?.mail);
+        if (!isLoggedin) {
+          if (!emailAvailable) {
+            router.push("/register");
+            return;
+          }
+          router.push("/account");
+          
+        }
+      } catch (error) {
+        console.error("Error checking email:", error);
+        // エラー処理（必要に応じて）
+      }
+    };
+
+    verifyEmail();
+  }, [formData.mail, isLoggedin, router, session, status]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500">

@@ -1,7 +1,8 @@
 /*apidata.ts */
-'use server'
+"use server";
 import axios from "axios";
 import bcrypt from "bcrypt";
+import { ApiResponse, customerInt } from "./InterfaceTable";
 
 // APIからデータを取得し、必要な形式に整理する関数
 export async function getCustomerData() {
@@ -28,46 +29,38 @@ export async function getCustomerData() {
 }
 
 export async function postCustomerData(customerData: any) {
-    try {
-      // パスワードが提供されている場合のみハッシュ化
-      if (customerData.password) {
-        const hashedPassword = await bcrypt.hash(customerData.password, 14);
-        customerData.password = hashedPassword;
-      }
-  
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/create_customer`,
-        customerData
-      );
-      return response.data;
-    } catch (error) {
-      console.error("Error posting customer data:", error);
-      throw error;
-    }
-  }
-
-export async function checkEmail(mail: any) {
   try {
-    const response = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/get_customer`,
-      {
-        params: { mail },
-      }
-    );
-    const customers = response.data.customer;
-
-    // 顧客データが空の場合はメールアドレスが使用されていないと見なす
-    if (customers.length === 0) {
-      return true;
+    // パスワードが提供されている場合のみハッシュ化
+    if (customerData.password) {
+      const hashedPassword = await bcrypt.hash(customerData.password, 14);
+      customerData.password = hashedPassword;
     }
 
-    // メールアドレスが既に使用されているかどうかをチェック
-    const isEmailUsed = customers.some(
-      (customer: { mail: any }) => customer.mail === mail
+    const response = await axios.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/create_customer`,
+      customerData
     );
-    return !isEmailUsed;
+    return response.data;
   } catch (error) {
-    console.error("Error checking email:", error);
+    console.error("Error posting customer data:", error);
     throw error;
+  }
+}
+
+export async function checkEmail(email: string): Promise<boolean> {
+  try {
+    const response = await axios.get<ApiResponse>(
+      "http://localhost:8080/get_customer"
+    );
+    const customers = response.data.customer; // ここを 'customers' に修正
+    console.log(email);
+    console.log(customers?.some((customer: customerInt) => customer.mail === email) ?? false);
+    return (
+      customers?.some((customer: customerInt) => customer.mail === email) ??
+      false
+    );
+  } catch (error) {
+    console.error("APIリクエストでエラー:", error);
+    throw new Error(`APIリクエストエラー: ${error}`);
   }
 }
